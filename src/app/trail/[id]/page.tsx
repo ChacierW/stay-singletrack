@@ -268,7 +268,7 @@ export default function TrailDetailPage({ params }: PageProps) {
           Been There Recently?
         </h2>
         <p className="text-[var(--foreground-muted)] mb-5">
-          Help other riders by reporting the current conditions.
+          Help other trail users by reporting the current conditions.
         </p>
         <button
           onClick={() => setShowReportModal(true)}
@@ -348,7 +348,7 @@ function ReportConditionModal({
               <ThumbsUp className="w-8 h-8 text-green-500" />
             </div>
             <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Thanks!</h3>
-            <p className="text-[var(--foreground-muted)]">Your report helps other riders.</p>
+            <p className="text-[var(--foreground-muted)]">Your report helps other trail users.</p>
           </div>
         ) : (
           <>

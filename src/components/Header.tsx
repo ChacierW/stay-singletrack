@@ -1,6 +1,6 @@
 'use client';
 
-import { Bike, MapPin } from 'lucide-react';
+import { TreePine, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -10,7 +10,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <div className="p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
-            <Bike className="w-6 h-6 text-green-500" />
+            <TreePine className="w-6 h-6 text-green-500" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-[var(--foreground)] leading-tight">

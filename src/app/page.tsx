@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import { PredictionsData, TrailCondition } from '@/lib/types';
 import { calculateStats, filterByCondition, filterByRegion, formatTimeSince } from '@/lib/predictions';
 import { FilterControls, MobileFilterControls } from '@/components/FilterControls';
-import { MapLegend } from '@/components/TrailMap';
 import { TrailCard, TrailCardSkeleton } from '@/components/TrailCard';
 import { 
   Filter, 
@@ -14,7 +13,7 @@ import {
   RefreshCw, 
   CheckCircle,
   Construction,
-  Bike
+  TreePine
 } from 'lucide-react';
 
 // Dynamic import for the map (no SSR since Leaflet needs window)
@@ -79,7 +78,7 @@ export default function HomePage() {
           <div className="relative w-16 h-16 mx-auto mb-4">
             <div className="absolute inset-0 rounded-full border-4 border-[var(--border)]" />
             <div className="absolute inset-0 rounded-full border-4 border-green-500 border-t-transparent animate-spin" />
-            <Bike className="absolute inset-0 m-auto w-6 h-6 text-green-500" />
+            <TreePine className="absolute inset-0 m-auto w-6 h-6 text-green-500" />
           </div>
           <p className="text-[var(--foreground-muted)]">Loading trail conditions...</p>
         </div>
@@ -133,7 +132,7 @@ export default function HomePage() {
           <div className="hidden sm:flex items-center gap-1.5">
             <CheckCircle className="w-3.5 h-3.5 text-green-500" />
             <span className="text-green-500 font-medium">{stats.rideable + stats.likely_rideable}</span>
-            <span className="text-[var(--foreground-muted)]">rideable</span>
+            <span className="text-[var(--foreground-muted)]">good</span>
           </div>
           <span className="hidden sm:inline h-4 w-px bg-[var(--border)]" />
           <span className="hidden sm:inline text-[var(--foreground-muted)]">
@@ -190,10 +189,6 @@ export default function HomePage() {
             onRegionChange={setSelectedRegion}
             stats={stats}
           />
-          
-          <div className="mt-6">
-            <MapLegend />
-          </div>
         </aside>
 
         {/* Map or List view */}
@@ -244,12 +239,6 @@ export default function HomePage() {
             />
           )}
 
-          {/* Legend (mobile, on map view) */}
-          {viewMode === 'map' && (
-            <div className="lg:hidden absolute bottom-4 left-4">
-              <MapLegend />
-            </div>
-          )}
         </main>
       </div>
 

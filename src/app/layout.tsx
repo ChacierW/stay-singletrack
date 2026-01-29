@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Stay Singletrack - Colorado Trail Conditions",
-  description: "AI-powered trail condition predictions for Colorado mountain bikers. Know if trails are rideable before you drive.",
-  keywords: ["mountain biking", "trail conditions", "Colorado", "MTB", "trail status"],
+  description: "AI-powered trail condition predictions for Colorado trails. Know if trails are good to go before you head out.",
+  keywords: ["trail conditions", "Colorado", "hiking", "running", "mountain biking", "trail status"],
 };
 
 export default function RootLayout({

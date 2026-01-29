@@ -131,8 +131,8 @@ export const CONDITION_COLORS: Record<TrailCondition, string> = {
 
 // Condition labels for display
 export const CONDITION_LABELS: Record<TrailCondition, string> = {
-  rideable: 'Rideable',
-  likely_rideable: 'Likely Rideable',
+  rideable: 'Good',
+  likely_rideable: 'Likely Good',
   likely_muddy: 'Likely Muddy',
   muddy: 'Muddy',
   snow: 'Snow/Ice',

@@ -47,7 +47,7 @@ export function FilterControls({
     onConditionsChange(CONDITIONS);
   };
 
-  const selectRideableOnly = () => {
+  const selectGoodOnly = () => {
     onConditionsChange(['rideable', 'likely_rideable']);
   };
 
@@ -61,10 +61,10 @@ export function FilterControls({
           </h3>
           <div className="flex gap-2">
             <button
-              onClick={selectRideableOnly}
+              onClick={selectGoodOnly}
               className="text-xs font-medium text-green-500 hover:text-green-400 transition-colors"
             >
-              Rideable only
+              Good only
             </button>
             <span className="text-[var(--foreground-muted)]">·</span>
             <button
@@ -76,8 +76,8 @@ export function FilterControls({
           </div>
         </div>
         
-        {/* Chip-based condition filters */}
-        <div className="flex flex-wrap gap-2">
+        {/* Condition filters — one per line */}
+        <div className="flex flex-col gap-2">
           {CONDITIONS.map((condition) => {
             const isSelected = selectedConditions.includes(condition);
             const count = stats?.[condition] ?? 0;
@@ -88,7 +88,7 @@ export function FilterControls({
                 key={condition}
                 onClick={() => toggleCondition(condition)}
                 className={`
-                  inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium
+                  w-full flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium
                   transition-all duration-150 border
                   ${isSelected 
                     ? 'border-transparent shadow-sm' 
@@ -102,10 +102,10 @@ export function FilterControls({
                 } : undefined}
               >
                 <span
-                  className="w-2.5 h-2.5 rounded-full"
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: color }}
                 />
-                <span>{CONDITION_LABELS[condition]}</span>
+                <span className="flex-1 text-left">{CONDITION_LABELS[condition]}</span>
                 <span className={`text-xs ${isSelected ? 'opacity-70' : 'text-[var(--foreground-muted)]'}`}>
                   {count}
                 </span>

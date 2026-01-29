@@ -293,7 +293,7 @@ async function generatePredictions(): Promise<void> {
   const trailsError = null;
 
   if (trailsError || !trails) {
-    console.error('Error fetching trails:', trailsError?.message);
+    console.error('Error fetching trails:', (trailsError as Error | null)?.message);
     process.exit(1);
   }
   console.log(`Loaded ${trails.length} trails\n`);
