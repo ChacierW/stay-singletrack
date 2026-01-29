@@ -40,6 +40,10 @@ yarn-error.log*
 # Raw data files (large)
 data/raw/
 
+# Intermediate enrichment files
+data/enriched/trails_with_soil.json
+data/enriched/*_progress.json
+
 # vercel
 .vercel
 

@@ -30,17 +30,23 @@ interface TrailData {
   name: string;
   system: string | null;
   manager: string | null;
+  surface: string | null;
+  open_to: string | null;
   open_to_bikes: boolean;
   length_miles: number | null;
+  elevation_min_m?: number | null;
+  elevation_max_m?: number | null;
   geometry: object;
   centroid_lat: number;
   centroid_lon: number;
+  segment_count?: number;
   soil_drainage_class?: string | null;
   base_dry_hours?: number | null;
   elevation_min?: number | null;
   elevation_max?: number | null;
   elevation_gain?: number | null;
   dominant_aspect?: string | null;
+  elevation_profile?: Array<{ distance_mi: number; elevation_m: number }> | null;
 }
 
 interface TrailsData {
@@ -92,8 +98,8 @@ function transformForInsert(trail: TrailData) {
     geometry: trail.geometry,
     centroid_lat: trail.centroid_lat,
     centroid_lon: trail.centroid_lon,
-    elevation_min: trail.elevation_min ?? null,
-    elevation_max: trail.elevation_max ?? null,
+    elevation_min: trail.elevation_min ?? trail.elevation_min_m ?? null,
+    elevation_max: trail.elevation_max ?? trail.elevation_max_m ?? null,
     elevation_gain: trail.elevation_gain ?? null,
     dominant_aspect: trail.dominant_aspect ?? null,
     soil_drainage_class: trail.soil_drainage_class ?? null,

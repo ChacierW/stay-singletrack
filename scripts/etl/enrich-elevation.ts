@@ -1,9 +1,11 @@
 /**
- * Enrich trails with USGS elevation and aspect data
- * 
- * Uses the USGS Elevation Point Query Service to sample elevation
- * along trails and calculate min/max/gain and dominant aspect.
- * 
+ * Enrich trails with elevation profiles and aspect data
+ *
+ * Uses COTREX-provided min_elevat/max_elevat for all trails.
+ * For the top 500 longest trails, also generates elevation profiles
+ * by sampling points along the geometry and querying USGS Elevation API.
+ * For remaining trails, generates interpolated profiles from min/max.
+ *
  * Usage: npx tsx scripts/etl/enrich-elevation.ts
  */
 
@@ -20,10 +22,11 @@ const OUTPUT_FILE = path.join(__dirname, '../../data/enriched/trails_complete.js
 const PROGRESS_FILE = path.join(__dirname, '../../data/enriched/elevation_progress.json');
 
 // Configuration
-const SAMPLE_INTERVAL_METERS = 500; // Sample every 500m along trail
-const RATE_LIMIT_MS = 200; // 5 requests per second
+const PROFILE_SAMPLES = 15; // Points to sample per trail
 const MAX_RETRIES = 3;
-const MAX_SAMPLES_PER_TRAIL = 20; // Limit samples for very long trails
+const USGS_PROFILE_LIMIT = 100; // Only query USGS for top N longest trails
+const USGS_CONCURRENCY = 5; // Concurrent USGS requests per trail
+const CHECKPOINT_INTERVAL = 25;
 
 type Aspect = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
 
@@ -36,216 +39,188 @@ interface TrailData {
   open_to: string | null;
   open_to_bikes: boolean;
   length_miles: number | null;
+  elevation_min_m?: number | null;
+  elevation_max_m?: number | null;
   geometry: {
-    type: 'LineString' | 'MultiLineString';
-    coordinates: number[][] | number[][][];
+    type: 'MultiLineString';
+    coordinates: number[][][];
   };
   centroid_lat: number;
   centroid_lon: number;
-  soil_drainage_class: string | null;
-  base_dry_hours: number | null;
-  // Elevation fields
+  segment_count?: number;
+  soil_drainage_class?: string | null;
+  base_dry_hours?: number | null;
+  // Enriched fields
   elevation_min?: number | null;
   elevation_max?: number | null;
   elevation_gain?: number | null;
   dominant_aspect?: Aspect | null;
+  elevation_profile?: Array<{ distance_mi: number; elevation_m: number }> | null;
 }
 
 interface EnrichedTrailsData {
   fetched_at: string;
   source: string;
   source_url: string;
-  enriched_at: string;
-  enrichment: string;
   total_trails: number;
   trails: TrailData[];
+  [key: string]: unknown;
 }
 
 interface Progress {
   lastProcessedIndex: number;
   processedCount: number;
   errorCount: number;
+  usgsCallCount: number;
   lastRunTime: string;
 }
 
-// Query elevation for a single point
+// Query elevation for a single point from USGS
 async function getElevation(lat: number, lon: number): Promise<number | null> {
   const url = `${USGS_ELEVATION_URL}?x=${lon}&y=${lat}&units=Meters&wkid=4326`;
-  
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.value !== undefined && data.value !== -1000000) {
         return Math.round(data.value);
       }
-      
+
       return null;
-    } catch (error) {
+    } catch {
       if (attempt < MAX_RETRIES) {
         await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
     }
   }
-  
+
   return null;
 }
 
-// Sample points along a LineString or MultiLineString
-function samplePoints(geometry: TrailData['geometry']): [number, number][] {
+// Sample evenly-spaced points along a trail's MultiLineString geometry
+// Handles disconnected segments by distributing samples proportionally
+function samplePoints(
+  geometry: TrailData['geometry'],
+  numSamples: number,
+  trailLengthMi?: number | null
+): Array<{ lat: number; lon: number; distanceMi: number }> {
   try {
-    // Convert to a single LineString if MultiLineString
-    let line: GeoJSON.Feature<GeoJSON.LineString>;
-    
-    if (geometry.type === 'MultiLineString') {
-      // Combine all parts into one line for sampling
-      const allCoords: number[][] = [];
-      for (const part of geometry.coordinates as number[][][]) {
-        allCoords.push(...part);
+    // Build individual line segments with their lengths
+    const segments: Array<{
+      line: GeoJSON.Feature<GeoJSON.LineString>;
+      lengthKm: number;
+    }> = [];
+
+    for (const coords of geometry.coordinates) {
+      if (coords.length < 2) continue;
+      const line = turf.lineString(coords);
+      const lengthKm = turf.length(line, { units: 'kilometers' });
+      if (lengthKm > 0) {
+        segments.push({ line, lengthKm });
       }
-      line = turf.lineString(allCoords);
-    } else {
-      line = turf.lineString(geometry.coordinates as number[][]);
     }
-    
-    const lengthKm = turf.length(line, { units: 'kilometers' });
-    const lengthMeters = lengthKm * 1000;
-    
-    // Calculate number of samples
-    const numSamples = Math.min(
-      Math.ceil(lengthMeters / SAMPLE_INTERVAL_METERS) + 1,
-      MAX_SAMPLES_PER_TRAIL
-    );
-    
-    // Always include start and end points
-    const samples: [number, number][] = [];
-    
+
+    if (segments.length === 0) return [];
+
+    const totalLengthKm = segments.reduce((sum, s) => sum + s.lengthKm, 0);
+    const totalLengthMi = trailLengthMi || totalLengthKm * 0.621371;
+
+    const samples: Array<{ lat: number; lon: number; distanceMi: number }> = [];
+
+    // Distribute samples across segments proportionally to their length
+    let cumulativeKm = 0;
+
     for (let i = 0; i < numSamples; i++) {
-      const fraction = i / (numSamples - 1);
-      const distance = fraction * lengthKm;
-      const point = turf.along(line, distance, { units: 'kilometers' });
-      samples.push([
-        point.geometry.coordinates[1], // lat
-        point.geometry.coordinates[0], // lon
-      ]);
+      const fraction = numSamples === 1 ? 0 : i / (numSamples - 1);
+      const targetKm = fraction * totalLengthKm;
+      const distMi = Math.round(fraction * totalLengthMi * 100) / 100;
+
+      // Find which segment contains this distance
+      let accumulated = 0;
+      for (const seg of segments) {
+        if (accumulated + seg.lengthKm >= targetKm || seg === segments[segments.length - 1]) {
+          const withinSeg = Math.min(targetKm - accumulated, seg.lengthKm);
+          const point = turf.along(seg.line, Math.max(0, withinSeg), { units: 'kilometers' });
+          samples.push({
+            lat: point.geometry.coordinates[1],
+            lon: point.geometry.coordinates[0],
+            distanceMi: distMi,
+          });
+          break;
+        }
+        accumulated += seg.lengthKm;
+      }
     }
-    
+
     return samples;
-  } catch (error) {
-    console.error('Error sampling points:', error);
+  } catch {
     return [];
   }
+}
+
+// Generate an interpolated elevation profile from min/max values
+function interpolateProfile(
+  trail: TrailData,
+  numPoints: number = 10
+): Array<{ distance_mi: number; elevation_m: number }> {
+  const minElev = trail.elevation_min_m ?? trail.elevation_min ?? 2000;
+  const maxElev = trail.elevation_max_m ?? trail.elevation_max ?? 2500;
+  const lengthMi = trail.length_miles ?? 1;
+
+  const profile: Array<{ distance_mi: number; elevation_m: number }> = [];
+
+  for (let i = 0; i < numPoints; i++) {
+    const fraction = numPoints === 1 ? 0 : i / (numPoints - 1);
+    const distMi = Math.round(fraction * lengthMi * 100) / 100;
+    // Simple up-then-down profile: rises to max at midpoint, returns to min
+    const t = fraction <= 0.5 ? fraction * 2 : 2 - fraction * 2;
+    const elevation = Math.round(minElev + t * (maxElev - minElev));
+    profile.push({ distance_mi: distMi, elevation_m: elevation });
+  }
+
+  return profile;
 }
 
 // Calculate dominant aspect from bearing changes along a line
 function calculateDominantAspect(geometry: TrailData['geometry']): Aspect | null {
   try {
-    let coords: number[][];
-    
-    if (geometry.type === 'MultiLineString') {
-      coords = (geometry.coordinates as number[][][]).flat();
-    } else {
-      coords = geometry.coordinates as number[][];
+    const coords: number[][] = [];
+    for (const part of geometry.coordinates) {
+      coords.push(...part);
     }
-    
+
     if (coords.length < 2) return null;
-    
-    // Calculate bearings for each segment
-    const bearings: number[] = [];
-    
-    for (let i = 0; i < coords.length - 1; i++) {
-      const bearing = turf.bearing(
-        turf.point(coords[i]),
-        turf.point(coords[i + 1])
-      );
-      bearings.push(bearing);
-    }
-    
-    if (bearings.length === 0) return null;
-    
-    // Average bearing (handling the 0/360 wrap)
+
     let sinSum = 0;
     let cosSum = 0;
-    for (const b of bearings) {
-      sinSum += Math.sin((b * Math.PI) / 180);
-      cosSum += Math.cos((b * Math.PI) / 180);
+
+    for (let i = 0; i < coords.length - 1; i++) {
+      const bearing = turf.bearing(turf.point(coords[i]), turf.point(coords[i + 1]));
+      sinSum += Math.sin((bearing * Math.PI) / 180);
+      cosSum += Math.cos((bearing * Math.PI) / 180);
     }
-    
+
     const avgBearing = (Math.atan2(sinSum, cosSum) * 180) / Math.PI;
-    const normalizedBearing = (avgBearing + 360) % 360;
-    
-    // The aspect is the direction the trail faces (perpendicular to travel direction)
-    // We'll use the direction the slope generally faces
-    // For simplicity, we'll use cardinal direction buckets
-    return bearingToAspect(normalizedBearing);
-  } catch (error) {
-    console.error('Error calculating aspect:', error);
+    const b = ((avgBearing % 360) + 360) % 360;
+
+    if (b >= 337.5 || b < 22.5) return 'N';
+    if (b >= 22.5 && b < 67.5) return 'NE';
+    if (b >= 67.5 && b < 112.5) return 'E';
+    if (b >= 112.5 && b < 157.5) return 'SE';
+    if (b >= 157.5 && b < 202.5) return 'S';
+    if (b >= 202.5 && b < 247.5) return 'SW';
+    if (b >= 247.5 && b < 292.5) return 'W';
+    return 'NW';
+  } catch {
     return null;
   }
-}
-
-// Convert bearing to aspect direction
-function bearingToAspect(bearing: number): Aspect {
-  // Normalize to 0-360
-  const b = ((bearing % 360) + 360) % 360;
-  
-  if (b >= 337.5 || b < 22.5) return 'N';
-  if (b >= 22.5 && b < 67.5) return 'NE';
-  if (b >= 67.5 && b < 112.5) return 'E';
-  if (b >= 112.5 && b < 157.5) return 'SE';
-  if (b >= 157.5 && b < 202.5) return 'S';
-  if (b >= 202.5 && b < 247.5) return 'SW';
-  if (b >= 247.5 && b < 292.5) return 'W';
-  return 'NW';
-}
-
-// Calculate elevation stats for a trail
-async function processTrailElevation(
-  trail: TrailData
-): Promise<{
-  elevation_min: number | null;
-  elevation_max: number | null;
-  elevation_gain: number | null;
-}> {
-  const samplePoints_ = samplePoints(trail.geometry);
-  
-  if (samplePoints_.length === 0) {
-    return { elevation_min: null, elevation_max: null, elevation_gain: null };
-  }
-  
-  const elevations: number[] = [];
-  
-  for (const [lat, lon] of samplePoints_) {
-    const elev = await getElevation(lat, lon);
-    if (elev !== null) {
-      elevations.push(elev);
-    }
-    await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
-  }
-  
-  if (elevations.length === 0) {
-    return { elevation_min: null, elevation_max: null, elevation_gain: null };
-  }
-  
-  const elevation_min = Math.min(...elevations);
-  const elevation_max = Math.max(...elevations);
-  
-  // Calculate total elevation gain (sum of positive changes)
-  let elevation_gain = 0;
-  for (let i = 1; i < elevations.length; i++) {
-    const diff = elevations[i] - elevations[i - 1];
-    if (diff > 0) {
-      elevation_gain += diff;
-    }
-  }
-  
-  return { elevation_min, elevation_max, elevation_gain: Math.round(elevation_gain) };
 }
 
 // Load/save progress
@@ -254,13 +229,14 @@ function loadProgress(): Progress {
     if (fs.existsSync(PROGRESS_FILE)) {
       return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf-8'));
     }
-  } catch (error) {
+  } catch {
     console.log('No progress file found');
   }
   return {
     lastProcessedIndex: -1,
     processedCount: 0,
     errorCount: 0,
+    usgsCallCount: 0,
     lastRunTime: new Date().toISOString(),
   };
 }
@@ -280,10 +256,10 @@ function saveTrails(trails: TrailData[], originalData: EnrichedTrailsData): void
 
 // Main function
 async function enrichTrailsWithElevation(): Promise<void> {
-  console.log('⛰️  USGS Elevation Enrichment');
-  console.log('============================\n');
+  console.log('⛰️  Elevation Enrichment (COTREX + USGS)');
+  console.log('=========================================\n');
 
-  // Check for input file (try soil-enriched first, then raw)
+  // Find input file
   let inputPath = INPUT_FILE;
   if (!fs.existsSync(INPUT_FILE)) {
     const rawFile = path.join(__dirname, '../../data/raw/cotrex_trails.json');
@@ -302,7 +278,7 @@ async function enrichTrailsWithElevation(): Promise<void> {
   // Load progress
   let progress = loadProgress();
   const startIndex = progress.lastProcessedIndex + 1;
-  
+
   if (startIndex > 0) {
     console.log(`Resuming from trail ${startIndex}...`);
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -313,53 +289,127 @@ async function enrichTrailsWithElevation(): Promise<void> {
 
   const trails = rawData.trails;
   const total = trails.length;
-  
+
+  // Sort trails by length to identify top N for USGS profiles
+  const trailsByLength = trails
+    .map((t, idx) => ({ idx, length: t.length_miles || 0 }))
+    .sort((a, b) => b.length - a.length);
+
+  const usgsEligible = new Set(
+    trailsByLength.slice(0, USGS_PROFILE_LIMIT).map((t) => t.idx)
+  );
+
+  console.log(`USGS elevation profiles: top ${USGS_PROFILE_LIMIT} longest trails`);
+  console.log(`Interpolated profiles: remaining ${total - USGS_PROFILE_LIMIT} trails`);
   console.log(`Processing trails ${startIndex} to ${total - 1}...\n`);
 
   for (let i = startIndex; i < total; i++) {
     const trail = trails[i];
-    
-    // Skip if already has elevation data
-    if (trail.elevation_min !== undefined && trail.elevation_max !== undefined) {
+
+    // Skip if already has elevation profile
+    if (trail.elevation_profile && trail.elevation_profile.length > 0) {
       continue;
     }
-    
+
     const shortName = trail.name.substring(0, 35).padEnd(35);
-    process.stdout.write(`[${i + 1}/${total}] ${shortName} `);
-    
-    try {
-      // Get elevation stats
-      const elevStats = await processTrailElevation(trail);
-      trail.elevation_min = elevStats.elevation_min;
-      trail.elevation_max = elevStats.elevation_max;
-      trail.elevation_gain = elevStats.elevation_gain;
-      
-      // Calculate aspect
-      trail.dominant_aspect = calculateDominantAspect(trail.geometry);
-      
-      if (elevStats.elevation_min !== null) {
-        const minFt = Math.round((elevStats.elevation_min || 0) * 3.28084);
-        const maxFt = Math.round((elevStats.elevation_max || 0) * 3.28084);
-        console.log(`✓ ${minFt}-${maxFt}ft, ${trail.dominant_aspect || '?'}`);
+
+    // Use COTREX min/max elevation directly
+    trail.elevation_min = trail.elevation_min_m ?? null;
+    trail.elevation_max = trail.elevation_max_m ?? null;
+
+    // Calculate aspect
+    trail.dominant_aspect = calculateDominantAspect(trail.geometry);
+
+    if (usgsEligible.has(i)) {
+      // USGS profile for top trails
+      process.stdout.write(`[${i + 1}/${total}] ${shortName} USGS `);
+
+      try {
+        const points = samplePoints(trail.geometry, PROFILE_SAMPLES, trail.length_miles);
+        
+        // Fetch elevations concurrently in batches
+        const elevResults: Array<{ idx: number; distanceMi: number; elevation: number | null }> = [];
+        
+        for (let b = 0; b < points.length; b += USGS_CONCURRENCY) {
+          const batch = points.slice(b, b + USGS_CONCURRENCY);
+          const results = await Promise.all(
+            batch.map(async (pt, bIdx) => {
+              const elev = await getElevation(pt.lat, pt.lon);
+              progress.usgsCallCount++;
+              return { idx: b + bIdx, distanceMi: pt.distanceMi, elevation: elev };
+            })
+          );
+          elevResults.push(...results);
+        }
+        
+        // Build profile in order
+        const profile: Array<{ distance_mi: number; elevation_m: number }> = [];
+        let gain = 0;
+        let prevElev: number | null = null;
+        
+        elevResults.sort((a, b) => a.idx - b.idx);
+        for (const r of elevResults) {
+          if (r.elevation !== null) {
+            profile.push({ distance_mi: r.distanceMi, elevation_m: r.elevation });
+            if (prevElev !== null && r.elevation > prevElev) {
+              gain += r.elevation - prevElev;
+            }
+            prevElev = r.elevation;
+          }
+        }
+
+        if (profile.length > 0) {
+          trail.elevation_profile = profile;
+          trail.elevation_gain = Math.round(gain);
+          // Update min/max from profile if COTREX didn't have them
+          if (trail.elevation_min === null) {
+            trail.elevation_min = Math.min(...profile.map((p) => p.elevation_m));
+          }
+          if (trail.elevation_max === null) {
+            trail.elevation_max = Math.max(...profile.map((p) => p.elevation_m));
+          }
+          const minFt = Math.round((trail.elevation_min || 0) * 3.28084);
+          const maxFt = Math.round((trail.elevation_max || 0) * 3.28084);
+          console.log(`✓ ${profile.length}pts ${minFt}-${maxFt}ft +${trail.elevation_gain}m ${trail.dominant_aspect || '?'}`);
+        } else {
+          // Fallback to interpolated
+          trail.elevation_profile = interpolateProfile(trail);
+          trail.elevation_gain = trail.elevation_max && trail.elevation_min
+            ? Math.round((trail.elevation_max - trail.elevation_min) / 2)
+            : null;
+          console.log('⚠ USGS failed, interpolated');
+        }
+
         progress.processedCount++;
-      } else {
-        console.log('⚠ No elevation data');
+      } catch (error) {
+        console.log(`✗ Error: ${error}`);
+        trail.elevation_profile = interpolateProfile(trail);
+        trail.elevation_gain = null;
+        progress.errorCount++;
       }
-    } catch (error) {
-      console.log(`✗ Error: ${error}`);
-      trail.elevation_min = null;
-      trail.elevation_max = null;
-      trail.elevation_gain = null;
-      trail.dominant_aspect = null;
-      progress.errorCount++;
+    } else {
+      // Interpolated profile for remaining trails
+      if (i % 200 === 0) {
+        process.stdout.write(`[${i + 1}/${total}] Interpolating batch...`);
+      }
+
+      trail.elevation_profile = interpolateProfile(trail);
+      trail.elevation_gain = trail.elevation_max && trail.elevation_min
+        ? Math.round((trail.elevation_max - trail.elevation_min) / 2)
+        : null;
+      progress.processedCount++;
+
+      if (i % 200 === 0) {
+        console.log(` ✓`);
+      }
     }
-    
+
     // Update progress
     progress.lastProcessedIndex = i;
     progress.lastRunTime = new Date().toISOString();
-    
-    // Save every 25 trails
-    if ((i + 1) % 25 === 0) {
+
+    // Save checkpoint
+    if ((i + 1) % CHECKPOINT_INTERVAL === 0 && usgsEligible.has(i)) {
       console.log('\n  Saving checkpoint...\n');
       saveTrails(trails, rawData);
       saveProgress(progress);
@@ -368,38 +418,29 @@ async function enrichTrailsWithElevation(): Promise<void> {
 
   // Final save
   saveTrails(trails, rawData);
-  
+
   // Clean up progress
   if (fs.existsSync(PROGRESS_FILE)) {
     fs.unlinkSync(PROGRESS_FILE);
   }
 
   // Stats
-  const withElevation = trails.filter((t) => t.elevation_min !== null).length;
-  const aspectCounts: Record<string, number> = {};
-  for (const trail of trails) {
-    const key = trail.dominant_aspect || 'Unknown';
-    aspectCounts[key] = (aspectCounts[key] || 0) + 1;
-  }
-  
-  // Elevation ranges
-  const elevations = trails
-    .filter((t) => t.elevation_min !== null)
-    .map((t) => t.elevation_min!);
-  const avgElevation = elevations.length > 0 
-    ? Math.round(elevations.reduce((a, b) => a + b, 0) / elevations.length)
-    : 0;
+  const withProfile = trails.filter(
+    (t) => t.elevation_profile && t.elevation_profile.length > 0
+  ).length;
+  const usgsProfiles = trails.filter(
+    (t) => t.elevation_profile && t.elevation_profile.length > 15
+  ).length;
+  const withAspect = trails.filter((t) => t.dominant_aspect).length;
 
   console.log('\n✅ Elevation enrichment complete!');
   console.log(`\nStats:`);
-  console.log(`  Trails with elevation: ${withElevation} / ${total}`);
-  console.log(`  Average min elevation: ${avgElevation}m (${Math.round(avgElevation * 3.28084)}ft)`);
+  console.log(`  Trails with elevation profiles: ${withProfile} / ${total}`);
+  console.log(`  USGS-based profiles: ${usgsProfiles}`);
+  console.log(`  Interpolated profiles: ${withProfile - usgsProfiles}`);
+  console.log(`  Trails with aspect: ${withAspect}`);
+  console.log(`  Total USGS API calls: ${progress.usgsCallCount}`);
   console.log(`  Errors: ${progress.errorCount}`);
-  console.log(`\nAspect distribution:`);
-  for (const [asp, count] of Object.entries(aspectCounts).sort((a, b) => b[1] - a[1])) {
-    const pct = ((count / total) * 100).toFixed(1);
-    console.log(`  ${asp}: ${count} (${pct}%)`);
-  }
   console.log(`\nOutput: ${OUTPUT_FILE}`);
 }
 

@@ -19,7 +19,7 @@ const OUTPUT_FILE = path.join(__dirname, '../../data/enriched/trails_with_soil.j
 const PROGRESS_FILE = path.join(__dirname, '../../data/enriched/soil_progress.json');
 
 // Configuration
-const RATE_LIMIT_MS = 1000; // 1 request per second (SSURGO is slow)
+const CONCURRENCY = 10; // Concurrent SSURGO requests
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5000;
 
@@ -43,12 +43,15 @@ interface TrailData {
   open_to: string | null;
   open_to_bikes: boolean;
   length_miles: number | null;
+  elevation_min_m?: number | null;
+  elevation_max_m?: number | null;
   geometry: {
-    type: 'LineString' | 'MultiLineString';
-    coordinates: number[][] | number[][][];
+    type: 'MultiLineString';
+    coordinates: number[][][];
   };
   centroid_lat: number;
   centroid_lon: number;
+  segment_count?: number;
   // Enriched fields
   soil_drainage_class?: string | null;
   base_dry_hours?: number | null;
@@ -223,49 +226,53 @@ async function enrichTrailsWithSoil(): Promise<void> {
   const trails = rawData.trails;
   const total = trails.length;
   
-  console.log(`Processing trails ${startIndex} to ${total - 1}...\n`);
+  console.log(`Processing trails ${startIndex} to ${total - 1} (concurrency: ${CONCURRENCY})...\n`);
 
-  for (let i = startIndex; i < total; i++) {
-    const trail = trails[i];
+  // Process in concurrent batches
+  for (let batchStart = startIndex; batchStart < total; batchStart += CONCURRENCY) {
+    const batchEnd = Math.min(batchStart + CONCURRENCY, total);
+    const batch = trails.slice(batchStart, batchEnd);
     
-    // Skip if already enriched
-    if (trail.soil_drainage_class !== undefined) {
-      continue;
-    }
-    
-    process.stdout.write(`[${i + 1}/${total}] ${trail.name.substring(0, 40).padEnd(40)} `);
-    
-    try {
-      const drainageClass = await queryDrainageClass(trail.centroid_lat, trail.centroid_lon);
-      trail.soil_drainage_class = drainageClass;
-      trail.base_dry_hours = getDryHours(drainageClass);
+    const promises = batch.map(async (trail, batchIdx) => {
+      const i = batchStart + batchIdx;
       
-      if (drainageClass) {
-        console.log(`✓ ${drainageClass} (${trail.base_dry_hours}h)`);
-        progress.processedCount++;
-      } else {
-        console.log('⚠ No data (using default 48h)');
+      // Skip if already enriched
+      if (trail.soil_drainage_class !== undefined) {
+        return;
       }
-    } catch (error) {
-      console.log(`✗ Error: ${error}`);
-      trail.soil_drainage_class = null;
-      trail.base_dry_hours = 48;
-      progress.errorCount++;
-    }
+      
+      try {
+        const drainageClass = await queryDrainageClass(trail.centroid_lat, trail.centroid_lon);
+        trail.soil_drainage_class = drainageClass;
+        trail.base_dry_hours = getDryHours(drainageClass);
+        
+        if (drainageClass) {
+          progress.processedCount++;
+        }
+      } catch (error) {
+        trail.soil_drainage_class = null;
+        trail.base_dry_hours = 48;
+        progress.errorCount++;
+      }
+    });
+    
+    await Promise.all(promises);
     
     // Update progress
-    progress.lastProcessedIndex = i;
+    progress.lastProcessedIndex = batchEnd - 1;
     progress.lastRunTime = new Date().toISOString();
     
-    // Save every 50 trails
-    if ((i + 1) % 50 === 0) {
-      console.log('\n  Saving checkpoint...\n');
+    // Log progress
+    const pct = ((batchEnd / total) * 100).toFixed(1);
+    const withData = trails.slice(0, batchEnd).filter((t) => t.soil_drainage_class).length;
+    console.log(`[${batchEnd}/${total}] ${pct}% — ${withData} with soil data, ${progress.errorCount} errors`);
+    
+    // Save every 500 trails
+    if (batchEnd % 500 < CONCURRENCY) {
+      console.log('  Saving checkpoint...');
       saveTrails(trails, rawData);
       saveProgress(progress);
     }
-    
-    // Rate limiting
-    await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
   }
 
   // Final save
