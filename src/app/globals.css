@@ -2,36 +2,37 @@
 
 /* CSS Custom Properties for theming */
 :root {
-  /* Light mode defaults */
-  --background: #ffffff;
-  --background-secondary: #f3f4f6;
-  --background-tertiary: #e5e7eb;
-  --foreground: #111827;
-  --foreground-secondary: #4b5563;
-  --foreground-muted: #9ca3af;
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
-  --accent: #22c55e;
-  --accent-hover: #16a34a;
+  /* Light mode defaults - Clean, airy, natural */
+  --background: #fafaf9;
+  --background-secondary: #f5f5f4;
+  --background-tertiary: #e7e5e4;
+  --foreground: #1c1917;
+  --foreground-secondary: #57534e;
+  --foreground-muted: #a8a29e;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --accent: #16a34a;
+  --accent-hover: #15803d;
   --surface: #ffffff;
-  --surface-hover: #f9fafb;
+  --surface-hover: #fafaf9;
   --surface-elevated: #ffffff;
 }
 
 .dark {
-  --background: #0f172a;
-  --background-secondary: #1e293b;
-  --background-tertiary: #334155;
-  --foreground: #f8fafc;
-  --foreground-secondary: #cbd5e1;
-  --foreground-muted: #64748b;
-  --border: #334155;
-  --border-strong: #475569;
-  --accent: #22c55e;
-  --accent-hover: #4ade80;
-  --surface: #1e293b;
-  --surface-hover: #334155;
-  --surface-elevated: #334155;
+  /* Dark mode - Earthy, warm, premium outdoor aesthetic */
+  --background: #1a1511;
+  --background-secondary: #231c17;
+  --background-tertiary: #2d241e;
+  --foreground: #f5f1ed;
+  --foreground-secondary: #d4cdc5;
+  --foreground-muted: #948a7f;
+  --border: #3a332b;
+  --border-strong: #4a433a;
+  --accent: #7cb342;
+  --accent-hover: #9ccc65;
+  --surface: #231c17;
+  --surface-hover: #2d241e;
+  --surface-elevated: #2d241e;
 }
 
 @theme inline {

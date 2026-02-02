@@ -55,12 +55,21 @@ export async function POST(request: NextRequest) {
     
     // Parse request body
     const body = await request.json();
-    const { trail_id, condition, notes } = body;
-    
+    const { trail_id, condition, notes, email } = body;
+
     // Validate required fields
-    if (!trail_id || !condition) {
+    if (!trail_id || !condition || !email) {
       return NextResponse.json(
         { success: false, message: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid email address' },
         { status: 400 }
       );
     }
@@ -103,6 +112,7 @@ export async function POST(request: NextRequest) {
         trail_id,
         condition,
         notes: notes || null,
+        email: email,
         ip_hash: hashIP(ip),
         reported_at: new Date().toISOString(),
       });

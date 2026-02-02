@@ -303,6 +303,9 @@ function ReportConditionModal({
   const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const conditions = [
     { id: 'dry', label: 'Dry', Icon: Sun, color: 'amber', description: 'Dusty, no mud' },
@@ -311,11 +314,43 @@ function ReportConditionModal({
     { id: 'snow', label: 'Snow/Ice', Icon: Snowflake, color: 'cyan', description: 'Winter conditions' },
   ];
 
+  // Check for saved email on mount
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedEmail = localStorage.getItem('stay_singletrack_user_email');
+      if (!savedEmail) {
+        setNeedsEmail(true);
+      } else {
+        setEmail(savedEmail);
+      }
+    }
+  });
+
+  const validateEmail = (value: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value);
+  };
+
+  const handleEmailSubmit = () => {
+    if (!validateEmail(email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
+    // Save email to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('stay_singletrack_user_email', email);
+    }
+
+    setEmailError('');
+    setNeedsEmail(false);
+  };
+
   const handleSubmit = async () => {
     if (!selectedCondition) return;
-    
+
     setSubmitting(true);
-    
+
     try {
       const response = await fetch('/api/report', {
         method: 'POST',
@@ -323,9 +358,10 @@ function ReportConditionModal({
         body: JSON.stringify({
           trail_id: trailId,
           condition: selectedCondition,
+          email: email,
         }),
       });
-      
+
       if (response.ok) {
         setSubmitted(true);
         setTimeout(onClose, 2000);
@@ -340,7 +376,7 @@ function ReportConditionModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
+
       <div className="relative bg-[var(--surface)] rounded-2xl w-full max-w-md p-6 shadow-xl border border-[var(--border)] animate-slide-up">
         {submitted ? (
           <div className="text-center py-8">
@@ -350,6 +386,71 @@ function ReportConditionModal({
             <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Thanks!</h3>
             <p className="text-[var(--foreground-muted)]">Your report helps other trail users.</p>
           </div>
+        ) : needsEmail ? (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                One Quick Thing
+              </h3>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-[var(--background-secondary)] transition-colors"
+              >
+                <X className="w-5 h-5 text-[var(--foreground-muted)]" />
+              </button>
+            </div>
+
+            <p className="text-[var(--foreground-muted)] text-sm mb-5">
+              To help prevent abuse, we ask for your email before your first report. Your email helps us keep trail conditions accurate.
+            </p>
+
+            <div className="mb-5">
+              <label htmlFor="email" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError('');
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleEmailSubmit();
+                  }
+                }}
+                placeholder="you@example.com"
+                className="w-full px-4 py-2.5 bg-[var(--background-secondary)] border border-[var(--border)] rounded-xl text-[var(--foreground)] placeholder:text-[var(--foreground-muted)] focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              />
+              {emailError && (
+                <p className="mt-2 text-sm text-red-500">{emailError}</p>
+              )}
+            </div>
+
+            <div className="bg-[var(--background-secondary)] rounded-xl p-4 mb-5">
+              <p className="text-xs text-[var(--foreground-muted)]">
+                We store your email only to associate with your reports. We won&apos;t spam you or share your email. You can submit reports as many times as you want after this.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2.5 bg-[var(--background-secondary)] text-[var(--foreground-secondary)] rounded-xl hover:bg-[var(--background-tertiary)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEmailSubmit}
+                disabled={!email}
+                className="flex-1 px-4 py-2.5 bg-green-500 text-white rounded-xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          </>
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">

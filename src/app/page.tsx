@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { PredictionsData, TrailCondition } from '@/lib/types';
 import { calculateStats, filterByCondition, filterByRegion, formatTimeSince } from '@/lib/predictions';
 import { FilterControls, MobileFilterControls } from '@/components/FilterControls';
-import { TrailCard, TrailCardSkeleton } from '@/components/TrailCard';
+import { VirtualizedTrailList } from '@/components/VirtualizedTrailList';
 import { 
   Filter, 
   Map, 
@@ -191,54 +191,23 @@ export default function HomePage() {
           />
         </aside>
 
-        {/* Map or List view */}
+        {/* Map and List views — both always mounted, toggled via CSS */}
         <main className="flex-1 relative">
-          {viewMode === 'list' ? (
-            <div className="h-full overflow-y-auto p-4 bg-[var(--background)]">
-              <div className="max-w-3xl mx-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-[var(--foreground)]">
-                    {filteredTrails.length} Trails
-                  </h2>
-                  <span className="text-sm text-[var(--foreground-muted)]">
-                    Sorted by condition
-                  </span>
-                </div>
-                
-                <div className="space-y-3">
-                  {filteredTrails.map((trail, index) => (
-                    <div 
-                      key={trail.id} 
-                      className="animate-fade-in"
-                      style={{ animationDelay: `${index * 30}ms` }}
-                    >
-                      <TrailCard trail={trail} />
-                    </div>
-                  ))}
-                </div>
-                
-                {filteredTrails.length === 0 && (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--background-secondary)] flex items-center justify-center">
-                      <Filter className="w-8 h-8 text-[var(--foreground-muted)]" />
-                    </div>
-                    <h3 className="text-lg font-medium text-[var(--foreground)] mb-1">
-                      No trails match your filters
-                    </h3>
-                    <p className="text-[var(--foreground-muted)]">
-                      Try adjusting your filter settings
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
+          <div
+            className="h-full"
+            style={{ display: viewMode === 'list' ? 'block' : 'none' }}
+          >
+            <VirtualizedTrailList trails={filteredTrails} />
+          </div>
+          <div
+            className="h-full"
+            style={{ display: viewMode === 'map' ? 'block' : 'none' }}
+          >
             <TrailMap
               trails={filteredTrails}
               selectedConditions={selectedConditions}
             />
-          )}
-
+          </div>
         </main>
       </div>
 

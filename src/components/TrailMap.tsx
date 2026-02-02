@@ -100,7 +100,7 @@ export function TrailMap({
       center={center}
       zoom={zoom}
       className="w-full h-full"
-      style={{ background: resolvedTheme === 'dark' ? '#1a1a2e' : '#f5f5f5' }}
+      style={{ background: resolvedTheme === 'dark' ? '#1a1511' : '#fafaf9' }}
       ref={mapRef}
     >
       {/* Map tiles that match theme */}
