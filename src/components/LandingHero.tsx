@@ -170,16 +170,13 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
                 <TreePine className="w-4 h-4 text-green-600 dark:text-green-400" />
                 <span>© {new Date().getFullYear()} Stay Singletrack</span>
               </div>
-              <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
-                <span>Want to build together or use the data?</span>
-                <a
-                  href="mailto:hello@staysingletrack.com"
-                  className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                  hello@staysingletrack.com
-                </a>
-              </div>
+              <a
+                href="mailto:hello@staysingletrack.com"
+                className="inline-flex items-center gap-1.5 text-stone-500 dark:text-stone-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                hello@staysingletrack.com
+              </a>
             </div>
           </div>
         </div>
