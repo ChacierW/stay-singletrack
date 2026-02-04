@@ -10,63 +10,30 @@ interface LandingHeroProps {
   };
 }
 
-// Organic topographic contour pattern
+// Topographic background image
 function TopoBackground() {
   return (
-    <svg 
-      className="absolute inset-0 w-full h-full opacity-[0.35] dark:opacity-[0.15]"
-      viewBox="0 0 800 600" 
-      preserveAspectRatio="xMidYMid slice"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <g fill="none" strokeWidth="1" className="stroke-stone-400 dark:stroke-stone-500">
-        {/* Large flowing contours */}
-        <path d="M-50 100 Q100 50 200 120 T400 80 T600 150 T850 100" />
-        <path d="M-50 130 Q100 80 200 150 T400 110 T600 180 T850 130" />
-        <path d="M-50 160 Q100 110 200 180 T400 140 T600 210 T850 160" />
-        
-        {/* Mid section contours */}
-        <path d="M-50 250 Q50 200 150 280 T350 220 T500 300 T700 250 T850 280" />
-        <path d="M-50 280 Q50 230 150 310 T350 250 T500 330 T700 280 T850 310" />
-        <path d="M-50 310 Q50 260 150 340 T350 280 T500 360 T700 310 T850 340" />
-        
-        {/* Nested hill contours - left */}
-        <ellipse cx="180" cy="350" rx="120" ry="80" />
-        <ellipse cx="180" cy="350" rx="90" ry="60" />
-        <ellipse cx="180" cy="350" rx="60" ry="40" />
-        <ellipse cx="180" cy="350" rx="30" ry="20" />
-        
-        {/* Nested hill contours - right */}
-        <ellipse cx="620" cy="400" rx="140" ry="90" />
-        <ellipse cx="620" cy="400" rx="105" ry="67" />
-        <ellipse cx="620" cy="400" rx="70" ry="45" />
-        <ellipse cx="620" cy="400" rx="35" ry="22" />
-        
-        {/* Bottom flowing contours */}
-        <path d="M-50 480 Q100 430 250 500 T450 450 T650 520 T850 470" />
-        <path d="M-50 510 Q100 460 250 530 T450 480 T650 550 T850 500" />
-        <path d="M-50 540 Q100 490 250 560 T450 510 T650 580 T850 530" />
-        <path d="M-50 570 Q100 520 250 590 T450 540 T650 610 T850 560" />
-        
-        {/* Small nested feature - top right */}
-        <ellipse cx="680" cy="120" rx="60" ry="45" />
-        <ellipse cx="680" cy="120" rx="35" ry="25" />
-        
-        {/* Connecting flow lines */}
-        <path d="M300 200 Q350 250 320 300 T380 380" />
-        <path d="M330 200 Q380 250 350 300 T410 380" />
-        <path d="M450 150 Q480 200 460 280 T520 350" />
-        <path d="M480 150 Q510 200 490 280 T550 350" />
-      </g>
-      
-      {/* Accent lines */}
-      <g fill="none" strokeWidth="1.5" className="stroke-stone-500/50 dark:stroke-amber-600/30">
-        <path d="M-50 190 Q100 140 200 210 T400 170 T600 240 T850 190" />
-        <path d="M-50 340 Q50 290 150 370 T350 310 T500 390 T700 340 T850 370" />
-        <ellipse cx="180" cy="350" rx="75" ry="50" />
-        <ellipse cx="620" cy="400" rx="87" ry="56" />
-      </g>
-    </svg>
+    <>
+      {/* Light mode - inverted/lightened version */}
+      <div 
+        className="absolute inset-0 dark:hidden opacity-[0.08]"
+        style={{
+          backgroundImage: 'url(/topo-bg.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'invert(1)',
+        }}
+      />
+      {/* Dark mode - original dark image */}
+      <div 
+        className="absolute inset-0 hidden dark:block opacity-40"
+        style={{
+          backgroundImage: 'url(/topo-bg.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      />
+    </>
   );
 }
 
@@ -199,6 +166,10 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
               <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
                 <TreePine className="w-4 h-4 text-green-600 dark:text-green-400" />
                 <span>© {new Date().getFullYear()} Stay Singletrack</span>
+                <span className="text-stone-300 dark:text-stone-600">·</span>
+                <a href="https://www.freepik.com" target="_blank" rel="noopener noreferrer" className="text-stone-400 dark:text-stone-500 hover:text-stone-500 dark:hover:text-stone-400 text-xs">
+                  Background by Freepik
+                </a>
               </div>
               <a
                 href="mailto:hello@staysingletrack.com"
