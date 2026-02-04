@@ -147,16 +147,26 @@ html.dark .leaflet-popup-close-button:hover,
 }
 
 /* Trail popup button - force white text on green background (both modes) */
+/* Higher specificity to override dark mode link color */
 .leaflet-popup-content a.trail-popup-btn,
-.leaflet-popup-content .trail-popup-btn {
+.leaflet-popup-content .trail-popup-btn,
+html.dark .leaflet-popup-content a.trail-popup-btn,
+html.dark .leaflet-popup-content .trail-popup-btn,
+.dark .leaflet-popup-content a.trail-popup-btn,
+.dark .leaflet-popup-content .trail-popup-btn {
   color: #ffffff !important;
   text-decoration: none !important;
   background-color: #22c55e !important;
 }
 
 .leaflet-popup-content a.trail-popup-btn:hover,
-.leaflet-popup-content .trail-popup-btn:hover {
+.leaflet-popup-content .trail-popup-btn:hover,
+html.dark .leaflet-popup-content a.trail-popup-btn:hover,
+html.dark .leaflet-popup-content .trail-popup-btn:hover,
+.dark .leaflet-popup-content a.trail-popup-btn:hover,
+.dark .leaflet-popup-content .trail-popup-btn:hover {
   background-color: #16a34a !important;
+  color: #ffffff !important;
 }
 
 /* Custom scrollbar */
