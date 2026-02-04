@@ -10,44 +10,27 @@ interface LandingHeroProps {
   };
 }
 
-// SVG topographic pattern component
-function TopoPattern({ className }: { className?: string }) {
+// Traditional topographic contour lines CSS pattern
+function TopoBackground() {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 400 400"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <g stroke="currentColor" strokeWidth="1" opacity="0.3">
-        <path d="M50 200 Q100 150 150 180 T250 160 T350 200" fill="none" />
-        <path d="M30 220 Q80 170 140 200 T260 180 T370 220" fill="none" />
-        <path d="M40 250 Q100 200 160 230 T270 210 T360 250" fill="none" />
-        <path d="M60 280 Q120 230 180 260 T280 240 T340 280" fill="none" />
-        <path d="M80 310 Q140 260 200 290 T290 270 T320 310" fill="none" />
-        <circle cx="200" cy="200" r="30" fill="none" />
-        <circle cx="200" cy="200" r="50" fill="none" />
-        <circle cx="200" cy="200" r="80" fill="none" />
-        <circle cx="200" cy="200" r="120" fill="none" />
-        <path d="M100 100 Q130 130 120 160 T140 200" fill="none" />
-        <path d="M300 100 Q270 130 280 160 T260 200" fill="none" />
-        <path d="M100 300 Q130 270 120 240 T140 200" fill="none" />
-        <path d="M300 300 Q270 270 280 240 T260 200" fill="none" />
-      </g>
-    </svg>
+    <div 
+      className="absolute inset-0 opacity-[0.15] dark:opacity-[0.08]"
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 50 Q25 30 50 50 T100 50' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 55 Q25 35 50 55 T100 55' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 45 Q25 65 50 45 T100 45' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 60 Q30 40 55 60 T100 60' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 40 Q30 60 55 40 T100 40' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 65 Q35 45 60 65 T100 65' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 35 Q35 55 60 35 T100 35' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 70 Q40 50 65 70 T100 70' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 30 Q40 50 65 30 T100 30' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3C/svg%3E")`,
+        backgroundSize: '200px 200px',
+      }}
+    />
   );
 }
 
 export function LandingHero({ onExplore, stats }: LandingHeroProps) {
   return (
     <div className="min-h-[calc(100vh-60px)] relative overflow-hidden">
-      {/* Background with topo texture */}
+      {/* Background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-stone-100 via-stone-50 to-amber-50/30 dark:from-stone-900 dark:via-stone-900 dark:to-stone-800" />
       
-      {/* Topo pattern decorations */}
-      <TopoPattern className="absolute -top-20 -left-20 w-96 h-96 text-stone-400 dark:text-stone-600 rotate-12" />
-      <TopoPattern className="absolute -bottom-20 -right-20 w-[500px] h-[500px] text-stone-300 dark:text-stone-700 -rotate-12" />
-      <TopoPattern className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] text-stone-200 dark:text-stone-800" />
+      {/* Traditional topo contour lines */}
+      <TopoBackground />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-60px)] px-4 py-16">
