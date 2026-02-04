@@ -28,7 +28,7 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
         {/* Subheadline */}
         <p className="text-lg sm:text-xl text-[var(--foreground-secondary)] mb-8 max-w-lg mx-auto">
           AI-powered trail condition predictions for Colorado. 
-          Don't ride muddy trails — check conditions first.
+          Protect the trails you love — ride dry, stay singletrack.
         </p>
 
         {/* Stats */}
@@ -90,6 +90,24 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
               <p className="text-sm text-[var(--foreground-secondary)]">{item.desc}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Help us improve + Why "Stay Singletrack" */}
+      <div className="mt-16 max-w-2xl mx-auto w-full px-4">
+        <div className="p-6 rounded-xl bg-green-500/5 border border-green-500/20 text-center">
+          <h3 className="font-semibold text-[var(--foreground)] mb-2">
+            Help Us Improve
+          </h3>
+          <p className="text-sm text-[var(--foreground-secondary)] mb-4">
+            Our predictions get better with your feedback. If you see a trail marked incorrectly, 
+            report it — we use real-world data to train and improve our prediction engine.
+          </p>
+          <p className="text-xs text-[var(--foreground-muted)]">
+            <strong className="text-[var(--foreground-secondary)]">Why "Stay Singletrack"?</strong> It's a trail stewardship mantra. 
+            Riding muddy trails causes erosion, widens the path, and damages the trails we love. 
+            Check conditions first. Ride dry. Keep singletrack single.
+          </p>
         </div>
       </div>
 
