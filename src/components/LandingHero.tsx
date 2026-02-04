@@ -141,7 +141,7 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
           </div>
 
           {/* Help improve callout */}
-          <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-green-600/10 to-emerald-600/10 border border-green-500/20">
+          <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-green-600/90 to-emerald-600/80 border border-green-500/90">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
                 <TreePine className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -152,7 +152,7 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
                   Predictions get better with your feedback. See something wrong? 
                   Click any trail and use the <strong>Report Condition</strong> button on the trail details page.
                 </p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
+                <p className="text-xs text-stone-600 dark:text-stone-300">
                   <strong>Why "Stay Singletrack"?</strong> Using muddy trails causes erosion and widens paths. 
                   Check conditions. Go when it's dry. Keep singletrack single.
                 </p>
