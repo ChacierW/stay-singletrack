@@ -10,16 +10,63 @@ interface LandingHeroProps {
   };
 }
 
-// Traditional topographic contour lines CSS pattern
+// Organic topographic contour pattern
 function TopoBackground() {
   return (
-    <div 
-      className="absolute inset-0 opacity-[0.15] dark:opacity-[0.08]"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 50 Q25 30 50 50 T100 50' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 55 Q25 35 50 55 T100 55' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 45 Q25 65 50 45 T100 45' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 60 Q30 40 55 60 T100 60' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 40 Q30 60 55 40 T100 40' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 65 Q35 45 60 65 T100 65' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 35 Q35 55 60 35 T100 35' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 70 Q40 50 65 70 T100 70' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3Cpath d='M0 30 Q40 50 65 30 T100 30' fill='none' stroke='%2378716c' stroke-width='0.5'/%3E%3C/svg%3E")`,
-        backgroundSize: '200px 200px',
-      }}
-    />
+    <svg 
+      className="absolute inset-0 w-full h-full opacity-[0.35] dark:opacity-[0.15]"
+      viewBox="0 0 800 600" 
+      preserveAspectRatio="xMidYMid slice"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g fill="none" strokeWidth="1" className="stroke-stone-400 dark:stroke-stone-500">
+        {/* Large flowing contours */}
+        <path d="M-50 100 Q100 50 200 120 T400 80 T600 150 T850 100" />
+        <path d="M-50 130 Q100 80 200 150 T400 110 T600 180 T850 130" />
+        <path d="M-50 160 Q100 110 200 180 T400 140 T600 210 T850 160" />
+        
+        {/* Mid section contours */}
+        <path d="M-50 250 Q50 200 150 280 T350 220 T500 300 T700 250 T850 280" />
+        <path d="M-50 280 Q50 230 150 310 T350 250 T500 330 T700 280 T850 310" />
+        <path d="M-50 310 Q50 260 150 340 T350 280 T500 360 T700 310 T850 340" />
+        
+        {/* Nested hill contours - left */}
+        <ellipse cx="180" cy="350" rx="120" ry="80" />
+        <ellipse cx="180" cy="350" rx="90" ry="60" />
+        <ellipse cx="180" cy="350" rx="60" ry="40" />
+        <ellipse cx="180" cy="350" rx="30" ry="20" />
+        
+        {/* Nested hill contours - right */}
+        <ellipse cx="620" cy="400" rx="140" ry="90" />
+        <ellipse cx="620" cy="400" rx="105" ry="67" />
+        <ellipse cx="620" cy="400" rx="70" ry="45" />
+        <ellipse cx="620" cy="400" rx="35" ry="22" />
+        
+        {/* Bottom flowing contours */}
+        <path d="M-50 480 Q100 430 250 500 T450 450 T650 520 T850 470" />
+        <path d="M-50 510 Q100 460 250 530 T450 480 T650 550 T850 500" />
+        <path d="M-50 540 Q100 490 250 560 T450 510 T650 580 T850 530" />
+        <path d="M-50 570 Q100 520 250 590 T450 540 T650 610 T850 560" />
+        
+        {/* Small nested feature - top right */}
+        <ellipse cx="680" cy="120" rx="60" ry="45" />
+        <ellipse cx="680" cy="120" rx="35" ry="25" />
+        
+        {/* Connecting flow lines */}
+        <path d="M300 200 Q350 250 320 300 T380 380" />
+        <path d="M330 200 Q380 250 350 300 T410 380" />
+        <path d="M450 150 Q480 200 460 280 T520 350" />
+        <path d="M480 150 Q510 200 490 280 T550 350" />
+      </g>
+      
+      {/* Accent lines */}
+      <g fill="none" strokeWidth="1.5" className="stroke-stone-500/50 dark:stroke-amber-600/30">
+        <path d="M-50 190 Q100 140 200 210 T400 170 T600 240 T850 190" />
+        <path d="M-50 340 Q50 290 150 370 T350 310 T500 390 T700 340 T850 370" />
+        <ellipse cx="180" cy="350" rx="75" ry="50" />
+        <ellipse cx="620" cy="400" rx="87" ry="56" />
+      </g>
+    </svg>
   );
 }
 
