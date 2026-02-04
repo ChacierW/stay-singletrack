@@ -93,10 +93,6 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
         </div>
       </div>
 
-      {/* Scroll indicator */}
-      <div className="mt-12 animate-bounce">
-        <ChevronDown className="w-6 h-6 text-[var(--foreground-muted)]" />
-      </div>
     </div>
   );
 }
