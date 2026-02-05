@@ -204,7 +204,7 @@ export default function HomePage() {
           {/* Mobile filter toggle */}
           <button
             onClick={() => setShowFilters(true)}
-            className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--background-secondary)] hover:bg-[var(--background-tertiary)] text-[var(--foreground-secondary)] transition-colors"
+            className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors shadow-sm"
           >
             <Filter className="w-4 h-4" />
             <span>Filters</span>
@@ -268,6 +268,17 @@ export default function HomePage() {
               selectedConditions={selectedConditions}
             />
           </div>
+          
+          {/* Floating filter button for mobile (map view only) */}
+          {viewMode === 'map' && (
+            <button
+              onClick={() => setShowFilters(true)}
+              className="lg:hidden absolute bottom-6 right-4 z-[1000] flex items-center gap-2 px-4 py-3 rounded-full bg-green-500 hover:bg-green-600 text-white font-semibold shadow-lg transition-all active:scale-95"
+            >
+              <Filter className="w-5 h-5" />
+              <span>Filters</span>
+            </button>
+          )}
         </main>
       </div>
 
