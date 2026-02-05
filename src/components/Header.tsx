@@ -2,7 +2,6 @@
 
 import { TreePine, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   return (
@@ -22,12 +21,9 @@ export function Header() {
           </div>
         </Link>
         
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 text-sm text-[var(--foreground-muted)]">
-            <MapPin className="w-4 h-4" />
-            <span>Front Range, CO</span>
-          </div>
-          <ThemeToggle />
+        <div className="hidden sm:flex items-center gap-1.5 text-sm text-[var(--foreground-muted)]">
+          <MapPin className="w-4 h-4" />
+          <span>Front Range, CO</span>
         </div>
       </div>
     </header>
