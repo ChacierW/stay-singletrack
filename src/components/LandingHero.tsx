@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle, MapPin, Clock, TreePine, ArrowRight, Mail } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 interface LandingHeroProps {
   onExplore: () => void;
@@ -162,11 +163,12 @@ export function LandingHero({ onExplore, stats }: LandingHeroProps) {
 
           {/* Footer */}
           <div className="mt-12 pt-8 border-t border-stone-200 dark:border-stone-700">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm">
               <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
                 <TreePine className="w-4 h-4 text-green-600 dark:text-green-400" />
                 <span>© {new Date().getFullYear()} Stay Singletrack</span>
               </div>
+              <ThemeToggle />
               <a
                 href="mailto:hello@staysingletrack.com"
                 className="inline-flex items-center gap-1.5 text-stone-500 dark:text-stone-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
