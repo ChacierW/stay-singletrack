@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { TrailPrediction, CONDITION_COLORS, CONDITION_LABELS, TrailCondition } from '@/lib/types';
 import { ConditionBadge } from './ConditionBadge';
 import { useTheme } from 'next-themes';
@@ -66,6 +66,7 @@ export function TrailMap({
   const [loadedGeometries, setLoadedGeometries] = useState<Record<string, object>>({});
   const [loadedTiles, setLoadedTiles] = useState<Set<string>>(new Set());
   const loadingTilesRef = useRef<Set<string>>(new Set());
+  const failedTilesRef = useRef<Set<string>>(new Set());
 
   // Dynamically import Leaflet components only on client
   useEffect(() => {
@@ -140,6 +141,15 @@ export function TrailMap({
     return null;
   }
 
+  // Pre-compute which tiles actually have trails (avoid 404s for empty tiles)
+  const knownTiles = useMemo(() => {
+    const tiles = new Set<string>();
+    for (const trail of trails) {
+      tiles.add(getTileKey(trail.centroid_lat, trail.centroid_lon));
+    }
+    return tiles;
+  }, [trails]);
+
   // Component to load geometries based on viewport
   function ViewportGeometryLoader() {
     const map = useMap();
@@ -154,12 +164,12 @@ export function TrailMap({
           west: bounds.getWest(),
         };
 
-        const requiredTiles = getTilesInBounds(viewportBounds);
+        const requiredTiles = getTilesInBounds(viewportBounds).filter(t => knownTiles.has(t));
 
         // Load tiles that haven't been loaded yet
         for (const tileKey of requiredTiles) {
-          if (loadedTiles.has(tileKey) || loadingTilesRef.current.has(tileKey)) {
-            continue; // Already loaded or loading
+          if (loadedTiles.has(tileKey) || loadingTilesRef.current.has(tileKey) || failedTilesRef.current.has(tileKey)) {
+            continue; // Already loaded, loading, or known-empty
           }
 
           loadingTilesRef.current.add(tileKey);
@@ -173,9 +183,12 @@ export function TrailMap({
               const tileGeometries = await response.json();
               setLoadedGeometries((prev) => ({ ...prev, ...tileGeometries }));
               setLoadedTiles((prev) => new Set([...prev, tileKey]));
+            } else {
+              // 404 = no trails in this tile, mark as failed so we don't retry
+              failedTilesRef.current.add(tileKey);
             }
           } catch (err) {
-            console.warn(`Failed to load geo tile ${tileKey}:`, err);
+            failedTilesRef.current.add(tileKey);
           } finally {
             loadingTilesRef.current.delete(tileKey);
           }
