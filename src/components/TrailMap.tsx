@@ -15,6 +15,34 @@ interface TrailMapProps {
   onTrailClick?: (trail: TrailPrediction) => void;
 }
 
+// Tile configuration (must match generate-predictions.ts)
+const TILE_SIZE = 0.5; // degrees
+const MIN_LAT = 37.0;
+const MIN_LON = -109.0;
+
+// Get tile key for a lat/lon
+function getTileKey(lat: number, lon: number): string {
+  const tileLat = Math.floor((lat - MIN_LAT) / TILE_SIZE) * TILE_SIZE + MIN_LAT;
+  const tileLon = Math.floor((lon - MIN_LON) / TILE_SIZE) * TILE_SIZE + MIN_LON;
+  return `${tileLat.toFixed(1)}_${tileLon.toFixed(1)}`;
+}
+
+// Get all tile keys that intersect with a bounding box
+function getTilesInBounds(bounds: { north: number; south: number; east: number; west: number }): string[] {
+  const tiles: string[] = [];
+  const latStart = Math.floor((bounds.south - MIN_LAT) / TILE_SIZE) * TILE_SIZE + MIN_LAT;
+  const latEnd = Math.ceil((bounds.north - MIN_LAT) / TILE_SIZE) * TILE_SIZE + MIN_LAT;
+  const lonStart = Math.floor((bounds.west - MIN_LON) / TILE_SIZE) * TILE_SIZE + MIN_LON;
+  const lonEnd = Math.ceil((bounds.east - MIN_LON) / TILE_SIZE) * TILE_SIZE + MIN_LON;
+
+  for (let lat = latStart; lat <= latEnd; lat += TILE_SIZE) {
+    for (let lon = lonStart; lon <= lonEnd; lon += TILE_SIZE) {
+      tiles.push(`${lat.toFixed(1)}_${lon.toFixed(1)}`);
+    }
+  }
+  return tiles;
+}
+
 export function TrailMap({
   trails,
   selectedConditions,
@@ -33,6 +61,11 @@ export function TrailMap({
   } | null>(null);
   const { resolvedTheme } = useTheme();
   const mapRef = useRef<any>(null);
+
+  // Geometry loading state
+  const [loadedGeometries, setLoadedGeometries] = useState<Record<string, object>>({});
+  const [loadedTiles, setLoadedTiles] = useState<Set<string>>(new Set());
+  const loadingTilesRef = useRef<Set<string>>(new Set());
 
   // Dynamically import Leaflet components only on client
   useEffect(() => {
@@ -107,6 +140,65 @@ export function TrailMap({
     return null;
   }
 
+  // Component to load geometries based on viewport
+  function ViewportGeometryLoader() {
+    const map = useMap();
+
+    useEffect(() => {
+      const loadVisibleTiles = async () => {
+        const bounds = map.getBounds();
+        const viewportBounds = {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        };
+
+        const requiredTiles = getTilesInBounds(viewportBounds);
+
+        // Load tiles that haven't been loaded yet
+        for (const tileKey of requiredTiles) {
+          if (loadedTiles.has(tileKey) || loadingTilesRef.current.has(tileKey)) {
+            continue; // Already loaded or loading
+          }
+
+          loadingTilesRef.current.add(tileKey);
+
+          try {
+            const response = await fetch(`/data/geo/${tileKey}.json`, {
+              cache: 'force-cache', // Cache geo tiles aggressively
+            });
+
+            if (response.ok) {
+              const tileGeometries = await response.json();
+              setLoadedGeometries((prev) => ({ ...prev, ...tileGeometries }));
+              setLoadedTiles((prev) => new Set([...prev, tileKey]));
+            }
+          } catch (err) {
+            console.warn(`Failed to load geo tile ${tileKey}:`, err);
+          } finally {
+            loadingTilesRef.current.delete(tileKey);
+          }
+        }
+      };
+
+      // Load tiles on initial mount and when map moves/zooms
+      loadVisibleTiles();
+
+      const handleMoveEnd = () => {
+        loadVisibleTiles();
+      };
+
+      map.on('moveend', handleMoveEnd);
+
+      return () => {
+        map.off('moveend', handleMoveEnd);
+      };
+    }, [map, loadedTiles]);
+
+    return null;
+  }
+
   // Filter trails by selected conditions
   const filteredTrails = selectedConditions
     ? trails.filter((t) => selectedConditions.includes(t.condition))
@@ -136,6 +228,9 @@ export function TrailMap({
       {/* Fit bounds to trails */}
       <FitBounds trails={filteredTrails} />
 
+      {/* Viewport-based geometry loader */}
+      <ViewportGeometryLoader />
+
       {/* Map tiles that match theme */}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -143,13 +238,17 @@ export function TrailMap({
       />
 
       {/* Trail lines with invisible tap targets for mobile */}
-      {filteredTrails.map((trail) => (
+      {filteredTrails.map((trail) => {
+        // Use loaded geometry from tiles if available, otherwise fall back to trail.geometry
+        const geometry = loadedGeometries[trail.cotrex_id] || trail.geometry;
+
+        return (
         <React.Fragment key={trail.id}>
-          {trail.geometry ? (
+          {geometry ? (
             <>
               {/* Invisible wide hit area for touch */}
               <GeoJSON
-                data={trail.geometry as GeoJSON.Geometry}
+                data={geometry as GeoJSON.Geometry}
                 style={() => ({
                   color: 'transparent',
                   weight: 20,
@@ -167,7 +266,7 @@ export function TrailMap({
               </GeoJSON>
               {/* Visible trail line */}
               <GeoJSON
-                data={trail.geometry as GeoJSON.Geometry}
+                data={geometry as GeoJSON.Geometry}
                 style={() => getTrailStyle(trail.condition)}
                 eventHandlers={{
                   click: () => {
@@ -212,7 +311,8 @@ export function TrailMap({
             </CircleMarker>
           ) : null}
         </React.Fragment>
-      ))}
+        );
+      })}
     </MapContainer>
   );
 }
