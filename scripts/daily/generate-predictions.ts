@@ -588,23 +588,33 @@ async function generatePredictions(): Promise<void> {
     console.log('✅ Supabase updated');
   }
 
-  // Write split files for two-phase loading
+  // Write split files for optimized loading
   const outputDir = path.dirname(OUTPUT_FILE);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
-  
+
   // Full file (kept for backward compat / fallback)
   fs.writeFileSync(OUTPUT_FILE, JSON.stringify(output));
-  
-  // Lightweight index (no geometry) — fast initial load
+
+  // FULL lightweight index (no geometry) — fast initial load for ALL trails
   const indexOutput = {
     ...output,
     trails: predictions.map(({ geometry, ...rest }) => rest),
   };
   fs.writeFileSync(path.join(outputDir, 'predictions-index.json'), JSON.stringify(indexOutput));
-  
-  // Simplified geometry file — loaded in background
+  console.log(`✅ predictions-index.json: ${(JSON.stringify(indexOutput).length / 1024 / 1024).toFixed(2)}MB`);
+
+  // Geographic tiling for geometry
+  // Divide Colorado into a grid (~20 tiles)
+  // Colorado bounds: lat 37-41, lon -109 to -102
+  const TILE_SIZE = 0.5; // degrees (~35 miles at 40°N latitude)
+  const MIN_LAT = 37.0;
+  const MAX_LAT = 41.0;
+  const MIN_LON = -109.0;
+  const MAX_LON = -102.0;
+
+  // Simplification function for geometry
   const simplifyLine = (coords: number[][]): number[][] => {
     if (coords.length <= 2) return coords;
     const result = [coords[0]];
@@ -618,27 +628,61 @@ async function generatePredictions(): Promise<void> {
     result.push(coords[coords.length - 1]);
     return result;
   };
-  
-  const geometries: Record<string, object> = {};
+
+  // Get tile key for a lat/lon
+  const getTileKey = (lat: number, lon: number): string => {
+    const tileLat = Math.floor((lat - MIN_LAT) / TILE_SIZE) * TILE_SIZE + MIN_LAT;
+    const tileLon = Math.floor((lon - MIN_LON) / TILE_SIZE) * TILE_SIZE + MIN_LON;
+    return `${tileLat.toFixed(1)}_${tileLon.toFixed(1)}`;
+  };
+
+  // Group geometries by tile
+  const tileGeometries: Record<string, Record<string, object>> = {};
+
   for (const p of predictions) {
-    if (p.geometry) {
+    if (p.geometry && p.centroid_lat && p.centroid_lon) {
+      const tileKey = getTileKey(p.centroid_lat, p.centroid_lon);
+
+      if (!tileGeometries[tileKey]) {
+        tileGeometries[tileKey] = {};
+      }
+
       const geom = p.geometry as any;
+      let simplifiedGeom: object;
+
       if (geom.type === 'MultiLineString') {
-        geometries[p.cotrex_id] = {
+        simplifiedGeom = {
           type: 'MultiLineString',
           coordinates: geom.coordinates.map((line: number[][]) => simplifyLine(line)),
         };
       } else if (geom.type === 'LineString') {
-        geometries[p.cotrex_id] = {
+        simplifiedGeom = {
           type: 'LineString',
           coordinates: simplifyLine(geom.coordinates),
         };
       } else {
-        geometries[p.cotrex_id] = geom;
+        simplifiedGeom = geom;
       }
+
+      tileGeometries[tileKey][p.cotrex_id] = simplifiedGeom;
     }
   }
-  fs.writeFileSync(path.join(outputDir, 'trail-geometries.json'), JSON.stringify(geometries));
+
+  // Write geo tiles to public/data/geo/
+  const geoDir = path.join(outputDir, 'geo');
+  if (!fs.existsSync(geoDir)) {
+    fs.mkdirSync(geoDir, { recursive: true });
+  }
+
+  let totalGeoSize = 0;
+  for (const [tileKey, geometries] of Object.entries(tileGeometries)) {
+    const tileFile = path.join(geoDir, `${tileKey}.json`);
+    const tileContent = JSON.stringify(geometries);
+    fs.writeFileSync(tileFile, tileContent);
+    totalGeoSize += tileContent.length;
+  }
+
+  console.log(`✅ Generated ${Object.keys(tileGeometries).length} geo tiles (${(totalGeoSize / 1024 / 1024).toFixed(2)}MB total)`);
 
   console.log('\n=======================');
   console.log('✅ Predictions generated!');
